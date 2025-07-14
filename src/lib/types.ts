@@ -11,3 +11,10 @@ export type Customer = {
   email: string;
   phone: string;
 };
+
+export type PaymentMethod = {
+  id: string;
+  name: string;
+  description: string;
+  active: boolean;
+};

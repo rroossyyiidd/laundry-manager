@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Shirt, Users, Home, LogOut } from "lucide-react";
+import { Shirt, Users, Home, LogOut, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -32,7 +32,7 @@ export default function DashboardLayout({
   const getTitle = () => {
     const segments = pathname.split('/').filter(Boolean);
     if (segments.length < 2) return 'Dashboard';
-    const title = segments[1].replace('-', ' ');
+    const title = segments[segments.length - 1].replace('-', ' ');
     return title.charAt(0).toUpperCase() + title.slice(1);
   }
 
@@ -79,6 +79,17 @@ export default function DashboardLayout({
                 >
                   <Users />
                   <span>Customers</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <Link href="/dashboard/payment-methods" passHref>
+                <SidebarMenuButton
+                  tooltip="Payment Methods"
+                  isActive={pathname.startsWith("/dashboard/payment-methods")}
+                >
+                  <CreditCard />
+                  <span>Payment Methods</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
