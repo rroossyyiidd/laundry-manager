@@ -1,3 +1,4 @@
+
 export type Package = {
   id: string;
   name: string;
@@ -17,4 +18,13 @@ export type PaymentMethod = {
   name: string;
   description: string;
   active: boolean;
+};
+
+export type LaundryOrder = {
+  id: string;
+  customerId: string;
+  packageId: string;
+  weight: number;
+  status: 'Pending' | 'Processing' | 'Completed' | 'Cancelled';
+  orderDate: Date;
 };

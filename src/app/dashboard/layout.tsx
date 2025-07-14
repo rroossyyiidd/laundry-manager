@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -12,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Shirt, Users, Home, LogOut, CreditCard } from "lucide-react";
+import { Shirt, Users, Home, LogOut, CreditCard, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -57,6 +58,17 @@ export default function DashboardLayout({
                 >
                   <Home />
                   <span>Dashboard</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <Link href="/dashboard/laundry-orders" passHref>
+                <SidebarMenuButton
+                  tooltip="Laundry Orders"
+                  isActive={pathname.startsWith("/dashboard/laundry-orders")}
+                >
+                  <ShoppingCart />
+                  <span>Orders</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
