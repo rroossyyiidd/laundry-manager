@@ -1,55 +1,163 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
 import { LaundryOrderDialog } from "@/components/laundry-orders/laundry-order-dialog";
 import { LaundryOrdersTable } from "@/components/laundry-orders/laundry-orders-table";
-import type { LaundryOrder, Customer, Package } from "@/lib/types";
-import { PlusCircle } from "lucide-react";
-
-const initialOrders: LaundryOrder[] = [
-  { id: "ord_1", customerId: "cust_1", packageId: "pkg_1", weight: 5, status: "Completed", orderDate: new Date("2023-10-01") },
-  { id: "ord_2", customerId: "cust_2", packageId: "pkg_2", weight: 7, status: "Processing", orderDate: new Date("2023-10-02") },
-  { id: "ord_3", customerId: "cust_3", packageId: "pkg_1", weight: 3, status: "Pending", orderDate: new Date("2023-10-03") },
-];
-
-const dummyCustomers: Customer[] = [
-  { id: "cust_1", name: "John Doe", email: "john.doe@example.com", phone: "123-456-7890" },
-  { id: "cust_2", name: "Jane Smith", email: "jane.smith@example.com", phone: "098-765-4321" },
-  { id: "cust_3", name: "Peter Jones", email: "peter.jones@example.com", phone: "555-555-5555" },
-];
-
-const dummyPackages: Package[] = [
-  { id: "pkg_1", name: "Daily Wear", description: "Standard wash and fold for everyday clothes.", active: true },
-  { id: "pkg_2", name: "Beddings & Linens", description: "Special care for bedsheets, blankets, and towels.", active: true },
-  { id: "pkg_3", name: "Delicates", description: "Gentle wash for delicate fabrics.", active: false },
-];
-
+import type { LaundryOrderWithRelations, Customer, Package, PaymentMethod } from "@/lib/types";
+import { PlusCircle, RefreshCw } from "lucide-react";
+import { laundryOrderSchema } from "@/lib/schemas";
+import * as z from "zod";
 
 export default function LaundryOrdersPage() {
-  const [orders, setOrders] = useState<LaundryOrder[]>(initialOrders);
+  const [orders, setOrders] = useState<LaundryOrderWithRelations[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<LaundryOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<LaundryOrderWithRelations | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // In a real app, you would fetch these from your backend
-  const customers = dummyCustomers;
-  const packages = dummyPackages;
+  // Fetch initial data
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const addOrder = (order: Omit<LaundryOrder, 'id' | 'orderDate'>) => {
-    setOrders([...orders, { ...order, id: `ord_${Date.now()}`, orderDate: new Date() }]);
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch all required data in parallel
+      const [ordersRes, customersRes, packagesRes, paymentMethodsRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/customers'),
+        fetch('/api/packages'),
+        fetch('/api/payment-methods'),
+      ]);
+
+      const [ordersData, customersData, packagesData, paymentMethodsData] = await Promise.all([
+        ordersRes.json(),
+        customersRes.json(),
+        packagesRes.json(),
+        paymentMethodsRes.json(),
+      ]);
+
+      if (ordersData.success) setOrders(ordersData.data);
+      if (customersData.success) setCustomers(customersData.data);
+      if (packagesData.success) setPackages(packagesData.data);
+      if (paymentMethodsData.success) setPaymentMethods(paymentMethodsData.data);
+
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateOrder = (updatedOrder: LaundryOrder) => {
-    setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+  const handleSave = async (data: z.infer<typeof laundryOrderSchema>) => {
+    try {
+      if (selectedOrder) {
+        // Update existing order
+        const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update order');
+        }
+
+        if (result.success) {
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.id === selectedOrder.id ? result.data : order
+            )
+          );
+          
+          toast({
+            title: "Success",
+            description: "Order updated successfully!",
+          });
+        }
+      } else {
+        // Create new order
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create order');
+        }
+
+        if (result.success) {
+          setOrders(prevOrders => [result.data, ...prevOrders]);
+          
+          toast({
+            title: "Success",
+            description: "Order created successfully!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving order:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save order",
+        variant: "destructive",
+      });
+      throw error; // Re-throw to prevent dialog from closing
+    }
   };
 
-  const deleteOrder = (id: string) => {
-    setOrders(orders.filter(o => o.id !== id));
+  const handleDelete = async (id: number) => {
+    try {
+      const response = await fetch(`/api/orders/${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete order');
+      }
+
+      if (result.success) {
+        setOrders(prevOrders => prevOrders.filter(order => order.id !== id));
+        
+        toast({
+          title: "Success",
+          description: "Order deleted successfully!",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete order",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEdit = (order: LaundryOrder) => {
+  const handleEdit = (order: LaundryOrderWithRelations) => {
     setSelectedOrder(order);
     setDialogOpen(true);
   };
@@ -66,37 +174,48 @@ export default function LaundryOrdersPage() {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle>Laundry Orders</CardTitle>
-              <CardDescription>Create and manage customer laundry orders.</CardDescription>
+              <CardDescription>
+                Create and manage customer laundry orders with automated pricing.
+              </CardDescription>
             </div>
-            <Button onClick={handleAddNew}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New Order
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchData} disabled={isLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button onClick={handleAddNew}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Order
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <LaundryOrdersTable 
-            data={orders}
-            customers={customers}
-            packages={packages} 
-            onEdit={handleEdit} 
-            onDelete={deleteOrder} 
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Loading orders...</span>
+              </div>
+            </div>
+          ) : (
+            <LaundryOrdersTable 
+              data={orders}
+              onEdit={handleEdit} 
+              onDelete={handleDelete} 
+            />
+          )}
         </CardContent>
       </Card>
+      
       <LaundryOrderDialog
         isOpen={dialogOpen}
         setIsOpen={setDialogOpen}
         orderData={selectedOrder}
         customers={customers}
         packages={packages}
-        onSave={(data) => {
-          if (selectedOrder) {
-            updateOrder({ ...selectedOrder, ...data });
-          } else {
-            addOrder(data);
-          }
-        }}
+        paymentMethods={paymentMethods}
+        onSave={handleSave}
       />
     </>
   );

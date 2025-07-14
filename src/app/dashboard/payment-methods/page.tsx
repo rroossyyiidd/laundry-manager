@@ -1,34 +1,128 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PaymentMethodDialog } from "@/components/payment-methods/payment-method-dialog";
 import { PaymentMethodsTable } from "@/components/payment-methods/payment-methods-table";
+import { useToast } from "@/hooks/use-toast";
+import { PaymentMethodService } from "@/lib/services/paymentMethodService";
 import type { PaymentMethod } from "@/lib/types";
-import { PlusCircle } from "lucide-react";
-
-const initialPaymentMethods: PaymentMethod[] = [
-  { id: "pm_1", name: "Cash", description: "Payment by cash", active: true },
-  { id: "pm_2", name: "Credit Card", description: "Payment by credit card", active: true },
-  { id: "pm_3", name: "Bank Transfer", description: "Payment via bank transfer", active: false },
-];
+import { PlusCircle, Loader2 } from "lucide-react";
 
 export default function PaymentMethodsPage() {
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(initialPaymentMethods);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const { toast } = useToast();
 
-  const addMethod = (method: Omit<PaymentMethod, 'id'>) => {
-    setPaymentMethods([...paymentMethods, { ...method, id: `pm_${Date.now()}` }]);
+  // Load payment methods on component mount
+  useEffect(() => {
+    loadPaymentMethods();
+  }, []);
+
+  const loadPaymentMethods = async () => {
+    setLoading(true);
+    try {
+      const result = await PaymentMethodService.getAll();
+      if (result.success && result.data) {
+        setPaymentMethods(result.data);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load payment methods",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load payment methods",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateMethod = (updatedMethod: PaymentMethod) => {
-    setPaymentMethods(paymentMethods.map(p => p.id === updatedMethod.id ? updatedMethod : p));
+  const addMethod = async (methodData: Omit<PaymentMethod, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const result = await PaymentMethodService.create(methodData);
+      if (result.success && result.data) {
+        setPaymentMethods([...paymentMethods, result.data]);
+        toast({
+          title: "Success",
+          description: result.message || "Payment method created successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create payment method",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create payment method",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deleteMethod = (id: string) => {
-    setPaymentMethods(paymentMethods.filter(p => p.id !== id));
+  const updateMethod = async (updatedMethod: PaymentMethod) => {
+    try {
+      const result = await PaymentMethodService.update(updatedMethod.id, {
+        name: updatedMethod.name,
+        description: updatedMethod.description,
+        active: updatedMethod.active,
+      });
+      if (result.success && result.data) {
+        setPaymentMethods(paymentMethods.map(p => p.id === updatedMethod.id ? result.data! : p));
+        toast({
+          title: "Success",
+          description: result.message || "Payment method updated successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update payment method",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update payment method",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteMethod = async (id: number) => {
+    try {
+      const result = await PaymentMethodService.delete(id);
+      if (result.success) {
+        setPaymentMethods(paymentMethods.filter(p => p.id !== id));
+        toast({
+          title: "Success",
+          description: result.message || "Payment method deleted successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete payment method",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete payment method",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (method: PaymentMethod) => {
@@ -40,6 +134,20 @@ export default function PaymentMethodsPage() {
     setSelectedMethod(null);
     setDialogOpen(true);
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Methods</CardTitle>
+          <CardDescription>Loading payment methods...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -68,11 +176,11 @@ export default function PaymentMethodsPage() {
         isOpen={dialogOpen}
         setIsOpen={setDialogOpen}
         paymentMethodData={selectedMethod}
-        onSave={(data) => {
+        onSave={async (data) => {
           if (selectedMethod) {
-            updateMethod({ ...selectedMethod, ...data });
+            await updateMethod({ ...selectedMethod, ...data });
           } else {
-            addMethod(data);
+            await addMethod(data);
           }
         }}
       />

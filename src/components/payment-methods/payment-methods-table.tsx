@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type PaymentMethodsTableProps = {
   data: PaymentMethod[];
   onEdit: (method: PaymentMethod) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
 };
 
 export function PaymentMethodsTable({ data, onEdit, onDelete }: PaymentMethodsTableProps) {
@@ -74,7 +74,7 @@ export function PaymentMethodsTable({ data, onEdit, onDelete }: PaymentMethodsTa
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => onDelete(method.id)}
-                        variant="destructive"
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
                         Delete
                       </AlertDialogAction>

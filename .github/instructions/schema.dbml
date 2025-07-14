@@ -1,0 +1,165 @@
+// Database schema for Laundry Manager Application
+// Compatible with SQLite
+
+Project LaundryManager {
+  database_type: 'SQLite'
+  Note: 'Laundry management system database schema'
+}
+
+// Core user authentication table
+Table users {
+  id integer [primary key, increment]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  name varchar(255) [not null]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'System users/administrators'
+}
+
+// Customer information table
+Table customers {
+  id integer [primary key, increment]
+  name varchar(255) [not null]
+  email varchar(255) [unique, not null]
+  phone varchar(50) [not null]
+  address text
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Customer contact information and details'
+}
+
+// Laundry service packages
+Table packages {
+  id integer [primary key, increment]
+  name varchar(255) [not null]
+  description text [not null]
+  price decimal(10,2)
+  active boolean [default: true]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Available laundry service packages'
+}
+
+// Payment method options
+Table payment_methods {
+  id integer [primary key, increment]
+  name varchar(255) [not null]
+  description text [not null]
+  active boolean [default: true]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Available payment methods for customers'
+}
+
+// Main orders table
+Table laundry_orders {
+  id integer [primary key, increment]
+  customer_id integer [not null, ref: > customers.id]
+  package_id integer [not null, ref: > packages.id]
+  weight decimal(8,2) [not null]
+  status varchar(50) [not null, default: 'Pending']
+  order_date datetime [not null, default: `CURRENT_TIMESTAMP`]
+  pickup_date datetime
+  delivery_date datetime
+  total_amount decimal(10,2)
+  payment_method_id integer [ref: > payment_methods.id]
+  payment_status varchar(50) [default: 'Pending']
+  notes text
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  updated_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Customer laundry orders with full lifecycle tracking'
+}
+
+// Order status history for tracking
+Table order_status_history {
+  id integer [primary key, increment]
+  order_id integer [not null, ref: > laundry_orders.id]
+  status varchar(50) [not null]
+  changed_by integer [ref: > users.id]
+  changed_at datetime [default: `CURRENT_TIMESTAMP`]
+  notes text
+  
+  Note: 'Track order status changes over time'
+}
+
+// Additional services or items per order
+Table order_items {
+  id integer [primary key, increment]
+  order_id integer [not null, ref: > laundry_orders.id]
+  item_type varchar(255) [not null]
+  description text
+  quantity integer [default: 1]
+  unit_price decimal(10,2)
+  total_price decimal(10,2)
+  
+  Note: 'Individual items or services within an order'
+}
+
+// Customer addresses for pickup/delivery
+Table customer_addresses {
+  id integer [primary key, increment]
+  customer_id integer [not null, ref: > customers.id]
+  address_type varchar(50) [not null] // 'pickup', 'delivery', 'billing'
+  street_address text [not null]
+  city varchar(100) [not null]
+  state varchar(100)
+  postal_code varchar(20)
+  country varchar(100) [default: 'US']
+  is_primary boolean [default: false]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Multiple addresses per customer for pickup/delivery'
+}
+
+// Enum definitions for status fields
+Enum order_status {
+  Pending
+  Processing
+  Completed
+  Cancelled
+  Picked_Up
+  In_Progress
+  Ready_for_Delivery
+  Delivered
+}
+
+Enum payment_status {
+  Pending
+  Paid
+  Failed
+  Refunded
+  Partial
+}
+
+Enum address_type {
+  pickup
+  delivery
+  billing
+}
+
+// Indexes for performance
+TableGroup "Customer Management" {
+  customers
+  customer_addresses
+}
+
+TableGroup "Order Management" {
+  laundry_orders
+  order_items
+  order_status_history
+}
+
+TableGroup "Service Configuration" {
+  packages
+  payment_methods
+}
+
+TableGroup "System" {
+  users
+}

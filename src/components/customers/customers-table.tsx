@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 type CustomersTableProps = {
   data: Customer[];
   onEdit: (customer: Customer) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
 };
 
 export function CustomersTable({ data, onEdit, onDelete }: CustomersTableProps) {
@@ -78,7 +78,7 @@ export function CustomersTable({ data, onEdit, onDelete }: CustomersTableProps) 
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => onDelete(customer.id)}
-                        variant="destructive"
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
                         Delete
                       </AlertDialogAction>

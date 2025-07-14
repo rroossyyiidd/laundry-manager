@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Shirt, Users, Home, LogOut, CreditCard, ShoppingCart } from "lucide-react";
+import { Shirt, Users, Home, LogOut, CreditCard, ShoppingCart, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -102,6 +102,17 @@ export default function DashboardLayout({
                 >
                   <CreditCard />
                   <span>Payment Methods</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <Link href="/dashboard/perfumes" passHref>
+                <SidebarMenuButton
+                  tooltip="Perfumes"
+                  isActive={pathname.startsWith("/dashboard/perfumes")}
+                >
+                  <Sparkles />
+                  <span>Perfumes</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

@@ -1,0 +1,1253 @@
+openapi: 3.0.3
+info:
+  title: Laundry Manager API
+  description: |
+    RESTful API for the Laundry Manager application. This API provides endpoints 
+    for managing customers, laundry packages, payment methods, and orders in a 
+    laundry business management system.
+  version: 1.0.0
+  contact:
+    name: Laundry Manager Support
+    email: support@laundrymanager.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:9002/api
+    description: Development server
+  - url: https://api.laundrymanager.com/v1
+    description: Production server
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@laundryco.com
+                password:
+                  type: string
+                  format: password
+                  example: securePassword123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Successfully logged out
+
+  # Customer endpoints
+  /customers:
+    get:
+      tags:
+        - Customers
+      summary: Get all customers
+      description: Retrieve a list of all customers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search customers by name or email
+      responses:
+        '200':
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Customers
+      summary: Create a new customer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /customers/{id}:
+    get:
+      tags:
+        - Customers
+      summary: Get customer by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Customer ID
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Customers
+      summary: Update customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Customer ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Customers
+      summary: Delete customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Customer ID
+      responses:
+        '200':
+          description: Customer deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Customer deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # Package endpoints
+  /packages:
+    get:
+      tags:
+        - Packages
+      summary: Get all packages
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: active
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: List of packages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Package'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Packages
+      summary: Create a new package
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageInput'
+      responses:
+        '201':
+          description: Package created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Package'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /packages/{id}:
+    get:
+      tags:
+        - Packages
+      summary: Get package by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Package ID
+      responses:
+        '200':
+          description: Package details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Package'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Packages
+      summary: Update package
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Package ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageInput'
+      responses:
+        '200':
+          description: Package updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Package'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Packages
+      summary: Delete package
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Package ID
+      responses:
+        '200':
+          description: Package deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Package deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # Payment Methods endpoints
+  /payment-methods:
+    get:
+      tags:
+        - Payment Methods
+      summary: Get all payment methods
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: active
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: List of payment methods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentMethod'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Payment Methods
+      summary: Create a new payment method
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodInput'
+      responses:
+        '201':
+          description: Payment method created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PaymentMethod'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /payment-methods/{id}:
+    put:
+      tags:
+        - Payment Methods
+      summary: Update payment method
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Payment method ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodInput'
+      responses:
+        '200':
+          description: Payment method updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PaymentMethod'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Payment Methods
+      summary: Delete payment method
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Payment method ID
+      responses:
+        '200':
+          description: Payment method deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Payment method deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # Laundry Orders endpoints
+  /orders:
+    get:
+      tags:
+        - Orders
+      summary: Get all orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [Pending, Processing, Completed, Cancelled]
+        - in: query
+          name: customer_id
+          schema:
+            type: integer
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LaundryOrder'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Orders
+      summary: Create a new order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaundryOrderInput'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LaundryOrder'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Get order by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LaundryOrderDetailed'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Orders
+      summary: Update order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaundryOrderUpdate'
+      responses:
+        '200':
+          description: Order updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LaundryOrder'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Orders
+      summary: Delete order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      responses:
+        '200':
+          description: Order deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Order deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # Dashboard statistics
+  /dashboard/stats:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active_packages:
+                    type: integer
+                    example: 5
+                  total_customers:
+                    type: integer
+                    example: 1234
+                  revenue:
+                    type: number
+                    format: float
+                    example: 4231.89
+                  orders_today:
+                    type: integer
+                    example: 12
+                  pending_orders:
+                    type: integer
+                    example: 3
+                  completed_orders_month:
+                    type: integer
+                    example: 89
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: admin@laundryco.com
+        name:
+          type: string
+          example: Admin User
+        created_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        phone:
+          type: string
+          example: 123-456-7890
+        address:
+          type: string
+          example: 123 Main St, City, State 12345
+        created_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+
+    CustomerInput:
+      type: object
+      required:
+        - name
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        phone:
+          type: string
+          minLength: 10
+          example: 123-456-7890
+        address:
+          type: string
+          example: 123 Main St, City, State 12345
+
+    Package:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Daily Wear
+        description:
+          type: string
+          example: Standard wash and fold for everyday clothes.
+        price:
+          type: number
+          format: float
+          example: 15.99
+        active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+
+    PackageInput:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 3
+          example: Daily Wear
+        description:
+          type: string
+          minLength: 10
+          example: Standard wash and fold for everyday clothes.
+        price:
+          type: number
+          format: float
+          minimum: 0
+          example: 15.99
+        active:
+          type: boolean
+          default: true
+          example: true
+
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Credit Card
+        description:
+          type: string
+          example: Payment by credit card
+        active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+
+    PaymentMethodInput:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 3
+          example: Credit Card
+        description:
+          type: string
+          minLength: 5
+          example: Payment by credit card
+        active:
+          type: boolean
+          default: true
+          example: true
+
+    LaundryOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        customer_id:
+          type: integer
+          example: 1
+        package_id:
+          type: integer
+          example: 1
+        weight:
+          type: number
+          format: float
+          example: 5.5
+        status:
+          type: string
+          enum: [Pending, Processing, Completed, Cancelled]
+          example: Pending
+        order_date:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        pickup_date:
+          type: string
+          format: date-time
+          example: 2023-10-01T14:00:00Z
+        delivery_date:
+          type: string
+          format: date-time
+          example: 2023-10-02T16:00:00Z
+        total_amount:
+          type: number
+          format: float
+          example: 87.45
+        payment_method_id:
+          type: integer
+          example: 1
+        payment_status:
+          type: string
+          enum: [Pending, Paid, Failed, Refunded, Partial]
+          example: Pending
+        notes:
+          type: string
+          example: Customer requested extra care for delicate items
+        created_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T10:00:00Z
+
+    LaundryOrderInput:
+      type: object
+      required:
+        - customer_id
+        - package_id
+        - weight
+      properties:
+        customer_id:
+          type: integer
+          example: 1
+        package_id:
+          type: integer
+          example: 1
+        weight:
+          type: number
+          format: float
+          minimum: 0.1
+          example: 5.5
+        status:
+          type: string
+          enum: [Pending, Processing, Completed, Cancelled]
+          default: Pending
+          example: Pending
+        pickup_date:
+          type: string
+          format: date-time
+          example: 2023-10-01T14:00:00Z
+        delivery_date:
+          type: string
+          format: date-time
+          example: 2023-10-02T16:00:00Z
+        payment_method_id:
+          type: integer
+          example: 1
+        notes:
+          type: string
+          example: Customer requested extra care for delicate items
+
+    LaundryOrderUpdate:
+      type: object
+      properties:
+        customer_id:
+          type: integer
+          example: 1
+        package_id:
+          type: integer
+          example: 1
+        weight:
+          type: number
+          format: float
+          minimum: 0.1
+          example: 5.5
+        status:
+          type: string
+          enum: [Pending, Processing, Completed, Cancelled]
+          example: Processing
+        pickup_date:
+          type: string
+          format: date-time
+          example: 2023-10-01T14:00:00Z
+        delivery_date:
+          type: string
+          format: date-time
+          example: 2023-10-02T16:00:00Z
+        total_amount:
+          type: number
+          format: float
+          example: 87.45
+        payment_method_id:
+          type: integer
+          example: 1
+        payment_status:
+          type: string
+          enum: [Pending, Paid, Failed, Refunded, Partial]
+          example: Paid
+        notes:
+          type: string
+          example: Customer requested extra care for delicate items
+
+    LaundryOrderDetailed:
+      allOf:
+        - $ref: '#/components/schemas/LaundryOrder'
+        - type: object
+          properties:
+            customer:
+              $ref: '#/components/schemas/Customer'
+            package:
+              $ref: '#/components/schemas/Package'
+            payment_method:
+              $ref: '#/components/schemas/PaymentMethod'
+            order_items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            status_history:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderStatusHistory'
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        order_id:
+          type: integer
+          example: 1
+        item_type:
+          type: string
+          example: Shirt
+        description:
+          type: string
+          example: White cotton shirt
+        quantity:
+          type: integer
+          example: 3
+        unit_price:
+          type: number
+          format: float
+          example: 5.99
+        total_price:
+          type: number
+          format: float
+          example: 17.97
+
+    OrderStatusHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        order_id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          example: Processing
+        changed_by:
+          type: integer
+          example: 1
+        changed_at:
+          type: string
+          format: date-time
+          example: 2023-10-01T12:00:00Z
+        notes:
+          type: string
+          example: Order moved to processing queue
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        pages:
+          type: integer
+          example: 8
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: An error occurred
+        details:
+          type: string
+          example: Detailed error information
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: boolean
+                example: true
+              message:
+                type: string
+                example: Authentication required
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: boolean
+                example: true
+              message:
+                type: string
+                example: Resource not found
+
+    BadRequestError:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: boolean
+                example: true
+              message:
+                type: string
+                example: Invalid request data
+              details:
+                type: object
+                example:
+                  name: ["Name is required"]
+                  email: ["Invalid email format"]
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Customers
+    description: Customer management operations
+  - name: Packages
+    description: Laundry package management
+  - name: Payment Methods
+    description: Payment method configuration
+  - name: Orders
+    description: Laundry order management and tracking
+  - name: Dashboard
+    description: Dashboard statistics and overview data

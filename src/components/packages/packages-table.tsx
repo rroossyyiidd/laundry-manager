@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type PackagesTableProps = {
   data: Package[];
   onEdit: (pkg: Package) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
 };
 
 export function PackagesTable({ data, onEdit, onDelete }: PackagesTableProps) {
@@ -29,6 +29,7 @@ export function PackagesTable({ data, onEdit, onDelete }: PackagesTableProps) {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead>Price</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-[100px] text-right">Actions</TableHead>
           </TableRow>
@@ -38,6 +39,9 @@ export function PackagesTable({ data, onEdit, onDelete }: PackagesTableProps) {
             <TableRow key={pkg.id}>
               <TableCell className="font-medium">{pkg.name}</TableCell>
               <TableCell className="text-muted-foreground max-w-sm truncate">{pkg.description}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {pkg.price ? `IDR ${pkg.price.toLocaleString('id-ID')}` : 'Variable'}
+              </TableCell>
               <TableCell>
                 <Badge variant={pkg.active ? "default" : "secondary"}>
                   {pkg.active ? "Active" : "Inactive"}
@@ -74,7 +78,7 @@ export function PackagesTable({ data, onEdit, onDelete }: PackagesTableProps) {
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => onDelete(pkg.id)}
-                        variant="destructive"
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
                         Delete
                       </AlertDialogAction>
@@ -85,7 +89,7 @@ export function PackagesTable({ data, onEdit, onDelete }: PackagesTableProps) {
             </TableRow>
           )) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 No packages found. Start by adding a new package.
               </TableCell>
             </TableRow>

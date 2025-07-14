@@ -2,6 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -11,21 +12,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { packageSchema } from "@/lib/schemas";
 import type { Package } from "@/lib/types";
-import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 type PackageDialogProps = {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   packageData: Package | null;
-  onSave: (data: z.infer<typeof packageSchema>) => void;
+  onSave: (data: z.infer<typeof packageSchema>) => Promise<void>;
 };
 
 export function PackageDialog({ isOpen, setIsOpen, packageData, onSave }: PackageDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<z.infer<typeof packageSchema>>({
     resolver: zodResolver(packageSchema),
     defaultValues: {
       name: "",
       description: "",
+      price: null,
       active: true,
     },
   });
@@ -35,14 +39,22 @@ export function PackageDialog({ isOpen, setIsOpen, packageData, onSave }: Packag
       if (packageData) {
         form.reset(packageData);
       } else {
-        form.reset({ name: "", description: "", active: true });
+        form.reset({ name: "", description: "", price: null, active: true });
       }
     }
   }, [packageData, form, isOpen]);
 
-  const onSubmit = (data: z.infer<typeof packageSchema>) => {
-    onSave(data);
-    setIsOpen(false);
+  const onSubmit = async (data: z.infer<typeof packageSchema>) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(data);
+      setIsOpen(false);
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error('Error submitting form:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -84,6 +96,28 @@ export function PackageDialog({ isOpen, setIsOpen, packageData, onSave }: Packag
             />
             <FormField
               control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price (IDR)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="e.g., 15000" 
+                      {...field} 
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                    />
+                  </FormControl>
+                  <FormItemDescription>
+                    Leave empty if price varies by weight or other factors.
+                  </FormItemDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="active"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
@@ -103,8 +137,27 @@ export function PackageDialog({ isOpen, setIsOpen, packageData, onSave }: Packag
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-              <Button type="submit">Save changes</Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setIsOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {packageData ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

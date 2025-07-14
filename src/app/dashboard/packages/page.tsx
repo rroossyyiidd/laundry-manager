@@ -1,34 +1,129 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PackageDialog } from "@/components/packages/package-dialog";
 import { PackagesTable } from "@/components/packages/packages-table";
+import { useToast } from "@/hooks/use-toast";
+import { PackageService } from "@/lib/services/packageService";
 import type { Package } from "@/lib/types";
-import { PlusCircle } from "lucide-react";
-
-const initialPackages: Package[] = [
-  { id: "pkg_1", name: "Daily Wear", description: "Standard wash and fold for everyday clothes.", active: true },
-  { id: "pkg_2", name: "Beddings & Linens", description: "Special care for bedsheets, blankets, and towels.", active: true },
-  { id: "pkg_3", name: "Delicates", description: "Gentle wash for delicate fabrics.", active: false },
-];
+import { PlusCircle, Loader2 } from "lucide-react";
 
 export default function PackagesPage() {
-  const [packages, setPackages] = useState<Package[]>(initialPackages);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const { toast } = useToast();
 
-  const addPackage = (pkg: Omit<Package, 'id'>) => {
-    setPackages([...packages, { ...pkg, id: `pkg_${Date.now()}` }]);
+  // Load packages on component mount
+  useEffect(() => {
+    loadPackages();
+  }, []);
+
+  const loadPackages = async () => {
+    setLoading(true);
+    try {
+      const result = await PackageService.getAll();
+      if (result.success && result.data) {
+        setPackages(result.data);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load packages",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load packages",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updatePackage = (updatedPkg: Package) => {
-    setPackages(packages.map(p => p.id === updatedPkg.id ? updatedPkg : p));
+  const addPackage = async (packageData: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const result = await PackageService.create(packageData);
+      if (result.success && result.data) {
+        setPackages([...packages, result.data]);
+        toast({
+          title: "Success",
+          description: result.message || "Package created successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create package",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create package",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deletePackage = (id: string) => {
-    setPackages(packages.filter(p => p.id !== id));
+  const updatePackage = async (updatedPackage: Package) => {
+    try {
+      const result = await PackageService.update(updatedPackage.id, {
+        name: updatedPackage.name,
+        description: updatedPackage.description,
+        price: updatedPackage.price,
+        active: updatedPackage.active,
+      });
+      if (result.success && result.data) {
+        setPackages(packages.map(p => p.id === updatedPackage.id ? result.data! : p));
+        toast({
+          title: "Success",
+          description: result.message || "Package updated successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update package",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update package",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePackage = async (id: number) => {
+    try {
+      const result = await PackageService.delete(id);
+      if (result.success) {
+        setPackages(packages.filter(p => p.id !== id));
+        toast({
+          title: "Success",
+          description: result.message || "Package deleted successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete package",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete package",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (pkg: Package) => {
@@ -40,6 +135,20 @@ export default function PackagesPage() {
     setSelectedPackage(null);
     setDialogOpen(true);
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Laundry Packages</CardTitle>
+          <CardDescription>Loading packages...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -68,11 +177,11 @@ export default function PackagesPage() {
         isOpen={dialogOpen}
         setIsOpen={setDialogOpen}
         packageData={selectedPackage}
-        onSave={(data) => {
+        onSave={async (data) => {
           if (selectedPackage) {
-            updatePackage({ ...selectedPackage, ...data });
+            await updatePackage({ ...selectedPackage, ...data, price: data.price || null });
           } else {
-            addPackage(data);
+            await addPackage({ ...data, price: data.price || null });
           }
         }}
       />

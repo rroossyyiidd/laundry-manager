@@ -2,6 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -11,16 +12,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { paymentMethodSchema } from "@/lib/schemas";
 import type { PaymentMethod } from "@/lib/types";
-import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 type PaymentMethodDialogProps = {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   paymentMethodData: PaymentMethod | null;
-  onSave: (data: z.infer<typeof paymentMethodSchema>) => void;
+  onSave: (data: z.infer<typeof paymentMethodSchema>) => Promise<void>;
 };
 
 export function PaymentMethodDialog({ isOpen, setIsOpen, paymentMethodData, onSave }: PaymentMethodDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<z.infer<typeof paymentMethodSchema>>({
     resolver: zodResolver(paymentMethodSchema),
     defaultValues: {
@@ -40,9 +43,17 @@ export function PaymentMethodDialog({ isOpen, setIsOpen, paymentMethodData, onSa
     }
   }, [paymentMethodData, form, isOpen]);
 
-  const onSubmit = (data: z.infer<typeof paymentMethodSchema>) => {
-    onSave(data);
-    setIsOpen(false);
+  const onSubmit = async (data: z.infer<typeof paymentMethodSchema>) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(data);
+      setIsOpen(false);
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error('Error submitting form:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -103,8 +114,27 @@ export function PaymentMethodDialog({ isOpen, setIsOpen, paymentMethodData, onSa
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-              <Button type="submit">Save changes</Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setIsOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {paymentMethodData ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

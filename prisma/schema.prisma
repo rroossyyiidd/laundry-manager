@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core user authentication table
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orderStatusChanges OrderStatusHistory[]
+
+  @@map("users")
+}
+
+// Customer information table
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  phone     String
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orders    LaundryOrder[]
+  addresses CustomerAddress[]
+
+  @@map("customers")
+}
+
+// Laundry service packages
+model Package {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  price       Float?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orders LaundryOrder[]
+
+  @@map("packages")
+}
+
+// Payment method options
+model PaymentMethod {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orders LaundryOrder[]
+
+  @@map("payment_methods")
+}
+
+// Perfume options for laundry services
+model Perfume {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("perfumes")
+}
+
+// Main orders table
+model LaundryOrder {
+  id              Int              @id @default(autoincrement())
+  customerId      Int              @map("customer_id")
+  packageId       Int              @map("package_id")
+  weight          Float
+  status          OrderStatus      @default(Pending)
+  orderDate       DateTime         @default(now()) @map("order_date")
+  pickupDate      DateTime?        @map("pickup_date")
+  deliveryDate    DateTime?        @map("delivery_date")
+  totalAmount     Float?           @map("total_amount")
+  paymentMethodId Int?             @map("payment_method_id")
+  paymentStatus   PaymentStatus    @default(Pending) @map("payment_status")
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  customer       Customer             @relation(fields: [customerId], references: [id])
+  package        Package              @relation(fields: [packageId], references: [id])
+  paymentMethod  PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
+  statusHistory  OrderStatusHistory[]
+  orderItems     OrderItem[]
+
+  @@map("laundry_orders")
+}
+
+// Order status history for tracking
+model OrderStatusHistory {
+  id        Int         @id @default(autoincrement())
+  orderId   Int         @map("order_id")
+  status    OrderStatus
+  changedBy Int?        @map("changed_by")
+  changedAt DateTime    @default(now()) @map("changed_at")
+  notes     String?
+
+  // Relations
+  order LaundryOrder @relation(fields: [orderId], references: [id])
+  user  User?        @relation(fields: [changedBy], references: [id])
+
+  @@map("order_status_history")
+}
+
+// Additional services or items per order
+model OrderItem {
+  id          Int     @id @default(autoincrement())
+  orderId     Int     @map("order_id")
+  itemType    String  @map("item_type")
+  description String?
+  quantity    Int     @default(1)
+  unitPrice   Float   @map("unit_price")
+  totalPrice  Float   @map("total_price")
+
+  // Relations
+  order LaundryOrder @relation(fields: [orderId], references: [id])
+
+  @@map("order_items")
+}
+
+// Customer addresses for pickup/delivery
+model CustomerAddress {
+  id            Int         @id @default(autoincrement())
+  customerId    Int         @map("customer_id")
+  addressType   AddressType @map("address_type")
+  streetAddress String      @map("street_address")
+  city          String
+  state         String?
+  postalCode    String?     @map("postal_code")
+  country       String      @default("US")
+  isPrimary     Boolean     @default(false) @map("is_primary")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("customer_addresses")
+}
+
+// Enum definitions
+enum OrderStatus {
+  Pending
+  Processing
+  Completed
+  Cancelled
+  Picked_Up
+  In_Progress
+  Ready_for_Delivery
+  Delivered
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  Failed
+  Refunded
+  Partial
+}
+
+enum AddressType {
+  pickup
+  delivery
+  billing
+}

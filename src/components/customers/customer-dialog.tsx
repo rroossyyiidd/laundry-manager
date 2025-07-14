@@ -2,6 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -9,16 +10,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { customerSchema } from "@/lib/schemas";
 import type { Customer } from "@/lib/types";
-import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 type CustomerDialogProps = {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   customerData: Customer | null;
-  onSave: (data: z.infer<typeof customerSchema>) => void;
+  onSave: (data: z.infer<typeof customerSchema>) => Promise<void>;
 };
 
 export function CustomerDialog({ isOpen, setIsOpen, customerData, onSave }: CustomerDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
@@ -38,9 +41,17 @@ export function CustomerDialog({ isOpen, setIsOpen, customerData, onSave }: Cust
     }
   }, [customerData, form, isOpen]);
 
-  const onSubmit = (data: z.infer<typeof customerSchema>) => {
-    onSave(data);
-    setIsOpen(false);
+  const onSubmit = async (data: z.infer<typeof customerSchema>) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(data);
+      setIsOpen(false);
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error('Error submitting form:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -94,8 +105,27 @@ export function CustomerDialog({ isOpen, setIsOpen, customerData, onSave }: Cust
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-              <Button type="submit">Save changes</Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setIsOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {customerData ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

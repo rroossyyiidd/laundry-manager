@@ -10,26 +10,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { LaundryOrder, Customer, Package } from "@/lib/types";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import type { LaundryOrderWithRelations } from "@/lib/types";
+import { MoreHorizontal, Pencil, Trash2, Package, CreditCard } from "lucide-react";
 import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import { format } from 'date-fns';
 
 type LaundryOrdersTableProps = {
-  data: LaundryOrder[];
-  customers: Customer[];
-  packages: Package[];
-  onEdit: (order: LaundryOrder) => void;
-  onDelete: (id: string) => void;
+  data: LaundryOrderWithRelations[];
+  onEdit: (order: LaundryOrderWithRelations) => void;
+  onDelete: (id: number) => void;
 };
 
-export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete }: LaundryOrdersTableProps) {
-  const getCustomerName = (id: string) => customers.find(c => c.id === id)?.name || 'Unknown Customer';
-  const getPackageName = (id: string) => packages.find(p => p.id === id)?.name || 'Unknown Package';
-
-  const getStatusVariant = (status: LaundryOrder['status']) => {
+export function LaundryOrdersTable({ data, onEdit, onDelete }: LaundryOrdersTableProps) {
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case 'Completed':
         return 'default';
@@ -43,6 +38,14 @@ export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete
     }
   };
 
+  const formatCurrency = (amount: number | null) => {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+    }).format(amount);
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -51,6 +54,8 @@ export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete
             <TableHead>Customer</TableHead>
             <TableHead>Package</TableHead>
             <TableHead>Weight (kg)</TableHead>
+            <TableHead>Total Amount</TableHead>
+            <TableHead>Payment Method</TableHead>
             <TableHead>Order Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -59,10 +64,35 @@ export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete
         <TableBody>
           {data.length > 0 ? data.map((order) => (
             <TableRow key={order.id}>
-              <TableCell className="font-medium">{getCustomerName(order.customerId)}</TableCell>
-              <TableCell className="text-muted-foreground">{getPackageName(order.packageId)}</TableCell>
-              <TableCell className="text-muted-foreground">{order.weight.toFixed(1)}</TableCell>
-              <TableCell className="text-muted-foreground">{format(order.orderDate, 'PPP')}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-medium text-primary">
+                      {order.customer.name.charAt(0)}
+                    </span>
+                  </div>
+                  {order.customer.name}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Package className="h-4 w-4" />
+                  {order.package.name}
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{order.weight.toFixed(1)} kg</TableCell>
+              <TableCell className="font-medium">{formatCurrency(order.totalAmount)}</TableCell>
+              <TableCell>
+                {order.paymentMethod ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CreditCard className="h-4 w-4" />
+                    {order.paymentMethod.name}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Not set</span>
+                )}
+              </TableCell>
+              <TableCell className="text-muted-foreground">{format(new Date(order.orderDate), 'PPp')}</TableCell>
               <TableCell>
                 <Badge variant={getStatusVariant(order.status)}>
                   {order.status}
@@ -92,14 +122,14 @@ export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the order.
+                        This action cannot be undone. This will permanently delete the order for "{order.customer.name}".
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => onDelete(order.id)}
-                        variant="destructive"
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
                         Delete
                       </AlertDialogAction>
@@ -110,7 +140,7 @@ export function LaundryOrdersTable({ data, customers, packages, onEdit, onDelete
             </TableRow>
           )) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={8} className="h-24 text-center">
                 No orders found. Start by creating a new order.
               </TableCell>
             </TableRow>
